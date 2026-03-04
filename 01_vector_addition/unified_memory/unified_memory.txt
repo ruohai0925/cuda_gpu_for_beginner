@@ -1,0 +1,68 @@
+📝 Engineering Notes: GPU Memory Architecture & Unified Memory Dynamics
+
+Subject: VRAM, Unified Memory, and the Bandwidth Hierarchy in High-Performance Computing (HPC)
+Context: CFD Solvers & Deep Learning Training
+
+1. Terminology Clarification
+
+To ensure precision in technical discussion, we must distinguish between the following terms:
+
+VRAM (Video RAM): The high-speed, physical memory soldered onto the GPU PCB (e.g., GDDR6X or HBM). It is non-expandable.
+
+Unified Memory (UVM): A software/driver-level abstraction (common in CUDA) that creates a single virtual address space accessible 
+by both the CPU and GPU.
+
+System RAM (Host Memory): The DDR4/DDR5 memory installed on the motherboard, accessible by the CPU.
+
+2. The Core Question: Defining the "Limit"
+
+Does the physical VRAM limit determine the Unified Memory limit? Technically, No. Practically, Yes.
+
+A. The Logical Limit (Capacity)
+
+Unified Memory allows for Oversubscription. The GPU driver creates a virtual memory space that spans both the physical VRAM and the System RAM.
+
+Theoretical Cap: The total accessible memory is roughly $VRAM + System RAM$.
+Benefit: This prevents "Out of Memory" (OOM) crashes. It allows a workstation with 24GB of VRAM to load a 40GB CFD mesh or Neural Network model.
+
+B. The Physical Limit (Residency)
+
+While the address space is large, the residency (data actually available for immediate computation) is strictly limited by physical VRAM size. 
+The CUDA cores can only compute data that physically resides in VRAM.
+
+3. The Mechanism: How Oversubscription Works
+
+When the dataset size exceeds physical VRAM, the GPU driver engages in Memory Paging (Swapping):
+
+Page Fault: The GPU attempts to access a data block (e.g., a mesh cell) that is mapped to Unified Memory but currently resides in System RAM. 
+The calculation halts for that thread.
+
+Eviction: To make room, the driver identifies "cold" data in the VRAM (data not currently needed) and moves it to System RAM.
+
+Migration: The driver pulls the required "hot" data from System RAM into VRAM via the interconnect (PCIe).
+
+Resume: Once the data physically arrives in VRAM, the GPU resumes calculation.
+
+4. The Performance Hierarchy (The Cost of Swapping)
+
+The reason Oversubscription is avoided in performance-critical applications is the drastic difference in bandwidth. 
+The system is only as fast as the bus the data travels on.
+
+Memory Tier          Hardware Type         Approx.                                 Bandwidth Role
+Tier 1 (Hot Data)    GPU VRAM (GDDR6X)     $\approx 1,000 \text{ GB/s}$            Compute: The workspace where calculation happens.
+Tier 2 (Warm Data)   System RAM (DDR5)     $\approx 50\text{-}100 \text{ GB/s}$    Storage: Holding area for data waiting to be computed.
+The Bottleneck       PCIe 4.0/5.0 Bus      $\approx 32\text{-}64 \text{ GB/s}$     Transport: The narrow bridge connecting Tier 1 and Tier 2.
+
+The "Thrashing" Risk
+If the active working set (the data required for a single time-step or batch) is larger than the VRAM:
+The GPU spends more time waiting for data transfer over the PCIe bus (at $32 \text{ GB/s}$) than actually computing (at $1,000 \text{ GB/s}$).
+Result: Performance collapse. A simulation that should take hours may take days.
+
+5. Summary & Best Practices
+
+VRAM defines the Performance Boundary; Unified Memory defines the Crash Boundary.
+
+For Speed: Ensure the "Hot Data" (e.g., current time-step vectors, gradients) fits entirely within physical VRAM.
+
+For Capacity: Use Unified Memory only when the dataset is too large to fit, 
+and you accept that the execution time will increase significantly due to PCIe latency.

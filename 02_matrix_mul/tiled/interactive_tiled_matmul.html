@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CUDA Tiled Matrix Multiplication - Interactive Visualizer</title>
+<style>
+  :root {
+    --color-a: #3B82F6;
+    --color-a-light: #DBEAFE;
+    --color-a-tile: rgba(59,130,246,0.18);
+    --color-b: #10B981;
+    --color-b-light: #D1FAE5;
+    --color-b-tile: rgba(16,185,129,0.18);
+    --color-c: #F59E0B;
+    --color-c-light: #FEF3C7;
+    --color-sync: #FCD34D;
+    --color-sync-bg: rgba(252,211,77,0.25);
+    --color-selected: #EF4444;
+    --color-warp0: #8B5CF6;
+    --color-warp1: #14B8A6;
+    --color-warp2: #F97316;
+    --color-warp3: #EC4899;
+    --color-bg: #0f172a;
+    --color-panel: #1e293b;
+    --color-panel-border: #334155;
+    --color-text: #e2e8f0;
+    --color-text-dim: #94a3b8;
+    --color-code-bg: #0f172a;
+    --color-highlight-line: rgba(252,211,77,0.2);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+  #app {
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    height: 100vh;
+    gap: 0;
+  }
+
+  /* ========== CONTROL BAR ========== */
+  #control-bar {
+    background: #1a2332;
+    border-bottom: 1px solid var(--color-panel-border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .param-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .param-label {
+    font-size: 12px;
+    color: var(--color-text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .param-btn {
+    background: var(--color-panel);
+    border: 1px solid var(--color-panel-border);
+    color: var(--color-text);
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .param-btn:hover { border-color: var(--color-a); }
+  .param-btn.active {
+    background: var(--color-a);
+    border-color: var(--color-a);
+    color: white;
+    font-weight: 600;
+  }
+  .param-select {
+    background: var(--color-panel);
+    border: 1px solid var(--color-panel-border);
+    color: var(--color-text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  /* ========== STEP BAR ========== */
+  #step-bar {
+    background: #1a2332;
+    border-bottom: 1px solid var(--color-panel-border);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .step-btn {
+    background: var(--color-panel);
+    border: 1px solid var(--color-panel-border);
+    color: var(--color-text);
+    width: 36px;
+    height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .step-btn:hover { border-color: var(--color-a); background: rgba(59,130,246,0.15); }
+  .step-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  #play-btn {
+    width: 60px;
+    background: var(--color-a);
+    border-color: var(--color-a);
+    font-weight: 600;
+  }
+  #play-btn:hover { background: #2563EB; }
+  #step-info {
+    flex: 1;
+    font-size: 13px;
+    color: var(--color-text);
+    padding: 0 8px;
+  }
+  #step-counter {
+    font-weight: 700;
+    color: var(--color-c);
+    margin-right: 8px;
+  }
+  #step-desc {
+    color: var(--color-text-dim);
+  }
+  .speed-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+  #speed-slider {
+    width: 80px;
+    accent-color: var(--color-a);
+  }
+
+  /* ========== MAIN GRID ========== */
+  #main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-areas:
+      "mat-a  shmem-a  code"
+      "mat-b  shmem-b  code"
+      "mat-c  threads  vars";
+    gap: 2px;
+    padding: 2px;
+    overflow: hidden;
+    min-height: 0;
+  }
+  #panel-a { grid-area: mat-a; }
+  #panel-b { grid-area: mat-b; }
+  #panel-c { grid-area: mat-c; }
+  #panel-sa { grid-area: shmem-a; }
+  #panel-sb { grid-area: shmem-b; }
+  #panel-code { grid-area: code; }
+  #panel-threads { grid-area: threads; }
+  #panel-vars { grid-area: vars; }
+  .panel {
+    background: var(--color-panel);
+    border: 1px solid var(--color-panel-border);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .panel-header {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--color-panel-border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .panel-header .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .panel-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .panel-body canvas {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  /* Panel colors */
+  #panel-a .panel-header { color: var(--color-a); }
+  #panel-b .panel-header { color: var(--color-b); }
+  #panel-c .panel-header { color: var(--color-c); }
+  #panel-sa .panel-header { color: var(--color-a); }
+  #panel-sb .panel-header { color: var(--color-b); }
+
+  /* Code panel */
+  #code-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 11.5px;
+    line-height: 1.65;
+    padding: 6px 0;
+  }
+  .code-line {
+    display: flex;
+    padding: 0 10px;
+    white-space: pre;
+    transition: background 0.2s;
+  }
+  .code-line.active {
+    background: var(--color-highlight-line);
+    border-left: 3px solid var(--color-c);
+    padding-left: 7px;
+  }
+  .code-line-num {
+    color: var(--color-text-dim);
+    min-width: 28px;
+    text-align: right;
+    margin-right: 12px;
+    user-select: none;
+    font-size: 10px;
+  }
+  .code-line-text {
+    color: #e2e8f0;
+  }
+  /* Syntax colors */
+  .kw { color: #c084fc; }  /* keywords */
+  .ty { color: #67e8f9; }  /* types */
+  .fn { color: #fbbf24; }  /* functions */
+  .cm { color: #64748b; }  /* comments */
+  .nu { color: #fb923c; }  /* numbers */
+  .op { color: #94a3b8; }  /* operators */
+  .str { color: #86efac; } /* strings */
+
+  /* Variable watch + expression */
+  #vars-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+  }
+  .var-section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--color-text-dim);
+    margin: 8px 0 4px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-weight: 700;
+  }
+  .var-section-title:first-child { margin-top: 0; }
+  .var-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(51,65,85,0.4);
+  }
+  .var-name { color: #67e8f9; }
+  .var-value { color: #fbbf24; font-weight: 600; }
+  .var-value.changed {
+    color: #f87171;
+    animation: flash 0.5s;
+  }
+  @keyframes flash {
+    0% { background: rgba(248,113,113,0.3); }
+    100% { background: transparent; }
+  }
+  .expr-box {
+    background: rgba(15,23,42,0.6);
+    border: 1px solid var(--color-panel-border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin-top: 6px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .expr-highlight { color: #fbbf24; font-weight: 700; }
+
+  /* Thread grid */
+  #panel-threads .panel-body {
+    flex-direction: column;
+    gap: 6px;
+  }
+  #thread-info {
+    font-size: 11px;
+    color: var(--color-text-dim);
+    text-align: center;
+  }
+
+  /* ========== INFO BAR ========== */
+  #info-bar {
+    background: #1a2332;
+    border-top: 1px solid var(--color-panel-border);
+    padding: 8px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 50px;
+    max-height: 80px;
+    overflow-y: auto;
+  }
+  #info-bar .info-title {
+    color: var(--color-c);
+    font-weight: 700;
+    margin-right: 8px;
+  }
+  #info-bar .info-text {
+    color: var(--color-text-dim);
+  }
+  .mem-stats {
+    float: right;
+    font-size: 11px;
+    color: var(--color-text-dim);
+    background: rgba(15,23,42,0.5);
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .mem-stats span { color: var(--color-c); font-weight: 600; }
+
+  /* Keyboard hint */
+  .kbd-hint {
+    font-size: 10px;
+    color: var(--color-text-dim);
+    margin-left: 12px;
+  }
+  kbd {
+    background: var(--color-panel);
+    border: 1px solid var(--color-panel-border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: inherit;
+  }
+
+  /* Sync animation */
+  @keyframes syncPulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 8px 2px var(--color-sync); }
+  }
+  .sync-active {
+    animation: syncPulse 0.8s ease-in-out;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- CONTROL BAR -->
+  <div id="control-bar">
+    <div class="param-group">
+      <span class="param-label">N:</span>
+      <button class="param-btn" data-param="N" data-val="4">4</button>
+      <button class="param-btn active" data-param="N" data-val="8">8</button>
+      <button class="param-btn" data-param="N" data-val="16">16</button>
+    </div>
+    <div class="param-group">
+      <span class="param-label">Tile Size:</span>
+      <div id="tile-btns"></div>
+    </div>
+    <div class="param-group">
+      <span class="param-label">Block:</span>
+      <select id="block-select" class="param-select"></select>
+    </div>
+    <div class="param-group">
+      <span class="param-label">Thread:</span>
+      <span id="thread-label" style="font-size:13px;color:var(--color-selected);font-weight:600;">(0,0)</span>
+      <span style="font-size:11px;color:var(--color-text-dim)">click grid to change</span>
+    </div>
+    <span class="kbd-hint"><kbd>&larr;</kbd><kbd>&rarr;</kbd> step &nbsp;<kbd>Space</kbd> play</span>
+  </div>
+
+  <!-- STEP BAR -->
+  <div id="step-bar">
+    <button class="step-btn" id="btn-first" title="First step">&#x23EE;</button>
+    <button class="step-btn" id="btn-prev" title="Previous step">&#x25C0;</button>
+    <button class="step-btn" id="play-btn" title="Play/Pause">&#x25B6;</button>
+    <button class="step-btn" id="btn-next" title="Next step">&#x25B7;</button>
+    <button class="step-btn" id="btn-last" title="Last step">&#x23ED;</button>
+    <div id="step-info">
+      <span id="step-counter">Step 0 / 0</span>
+      <span id="step-desc"></span>
+    </div>
+    <div class="speed-group">
+      <span class="param-label">Speed:</span>
+      <input type="range" id="speed-slider" min="100" max="2000" value="600" step="100">
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div id="main-grid">
+    <!-- Row 1 -->
+    <div class="panel" id="panel-a">
+      <div class="panel-header"><span class="dot" style="background:var(--color-a)"></span>Matrix A</div>
+      <div class="panel-body"><canvas id="canvas-a"></canvas></div>
+    </div>
+    <div class="panel" id="panel-sa">
+      <div class="panel-header"><span class="dot" style="background:var(--color-a)"></span>Shared Memory s_a</div>
+      <div class="panel-body"><canvas id="canvas-sa"></canvas></div>
+    </div>
+    <div class="panel" id="panel-code">
+      <div class="panel-header"><span class="dot" style="background:var(--color-c)"></span>CUDA Kernel</div>
+      <div class="panel-body" style="align-items:stretch;justify-content:stretch;">
+        <div id="code-container"></div>
+      </div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="panel" id="panel-b">
+      <div class="panel-header"><span class="dot" style="background:var(--color-b)"></span>Matrix B</div>
+      <div class="panel-body"><canvas id="canvas-b"></canvas></div>
+    </div>
+    <div class="panel" id="panel-sb">
+      <div class="panel-header"><span class="dot" style="background:var(--color-b)"></span>Shared Memory s_b</div>
+      <div class="panel-body"><canvas id="canvas-sb"></canvas></div>
+    </div>
+    <!-- Row 2 continued -->
+
+    <!-- Row 3 -->
+    <div class="panel" id="panel-c">
+      <div class="panel-header"><span class="dot" style="background:var(--color-c)"></span>Matrix C (Output)</div>
+      <div class="panel-body"><canvas id="canvas-c"></canvas></div>
+    </div>
+    <div class="panel" id="panel-threads">
+      <div class="panel-header"><span class="dot" style="background:var(--color-warp0)"></span>Thread Grid (Warp View)</div>
+      <div class="panel-body">
+        <canvas id="canvas-threads"></canvas>
+        <div id="thread-info"></div>
+      </div>
+    </div>
+    <div class="panel" id="panel-vars">
+      <div class="panel-header"><span class="dot" style="background:#67e8f9"></span>Variable Watch</div>
+      <div class="panel-body" style="align-items:stretch;justify-content:stretch;">
+        <div id="vars-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INFO BAR -->
+  <div id="info-bar">
+    <span class="info-title">Ready</span>
+    <span class="info-text">Click "Next" or press &rarr; to begin stepping through the tiled matrix multiplication kernel.</span>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// SECTION 1: CUDA KERNEL SOURCE (for code panel)
+// =====================================================================
+const KERNEL_SOURCE = [
+  { code: '<span class="kw">__global__</span> <span class="kw">void</span> <span class="fn">matrixMul</span>(<span class="kw">const</span> <span class="ty">int</span> *a, <span class="kw">const</span> <span class="ty">int</span> *b, <span class="ty">int</span> *c) {' },
+  { code: '  <span class="ty">int</span> row = blockIdx.y * blockDim.y + threadIdx.y;' },
+  { code: '  <span class="ty">int</span> col = blockIdx.x * blockDim.x + threadIdx.x;' },
+  { code: '' },
+  { code: '  <span class="kw">__shared__</span> <span class="ty">int</span> s_a[SHMEM_SIZE];' },
+  { code: '  <span class="kw">__shared__</span> <span class="ty">int</span> s_b[SHMEM_SIZE];' },
+  { code: '' },
+  { code: '  <span class="ty">int</span> tmp = <span class="nu">0</span>;' },
+  { code: '' },
+  { code: '  <span class="kw">for</span> (<span class="ty">int</span> i = <span class="nu">0</span>; i &lt; N; i += blockDim.x) {' },
+  { code: '    <span class="ty">int</span> local_idx = threadIdx.y * blockDim.x + threadIdx.x;' },
+  { code: '    s_a[local_idx] = a[row * N + i + threadIdx.x];' },
+  { code: '    s_b[local_idx] = b[(i + threadIdx.y) * N + col];' },
+  { code: '    <span class="fn">__syncthreads</span>();  <span class="cm">// barrier: wait for all loads</span>' },
+  { code: '' },
+  { code: '    <span class="kw">for</span> (<span class="ty">int</span> j = <span class="nu">0</span>; j &lt; blockDim.x; j++) {' },
+  { code: '      tmp += s_a[threadIdx.y*blockDim.x+j] * s_b[j*blockDim.x+threadIdx.x];' },
+  { code: '    }' },
+  { code: '    <span class="fn">__syncthreads</span>();  <span class="cm">// barrier: wait before next tile</span>' },
+  { code: '  }' },
+  { code: '' },
+  { code: '  c[row * N + col] = tmp;' },
+  { code: '}' },
+];
+
+// =====================================================================
+// SECTION 2: STATE
+// =====================================================================
+const S = {
+  N: 8,
+  T: 4, // TILE_SIZE
+  blockX: 0,
+  blockY: 0,
+  threadX: 0,
+  threadY: 0,
+  matA: [],
+  matB: [],
+  matC: [],
+  shmemA: [],
+  shmemB: [],
+  steps: [],
+  currentStep: 0,
+  playing: false,
+  playTimer: null,
+  playSpeed: 600,
+  // Previous variable values for change detection
+  prevVars: {},
+};
+
+// =====================================================================
+// SECTION 3: MATRIX INITIALIZATION
+// =====================================================================
+function initMatrices() {
+  const n = S.N;
+  S.matA = Array.from({length: n*n}, () => Math.floor(Math.random()*10));
+  S.matB = Array.from({length: n*n}, () => Math.floor(Math.random()*10));
+  // Compute correct C
+  S.matC = new Array(n*n).fill(0);
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) {
+      let sum = 0;
+      for (let k = 0; k < n; k++)
+        sum += S.matA[i*n+k] * S.matB[k*n+j];
+      S.matC[i*n+j] = sum;
+    }
+}
+
+// =====================================================================
+// SECTION 4: STEP SEQUENCE GENERATOR
+// =====================================================================
+function generateSteps() {
+  const steps = [];
+  const N = S.N, T = S.T;
+  const numTiles = N / T;
+
+  // Init steps
+  steps.push({
+    phase: 'init', sub: 'coords', codeLines: [1,2],
+    title: 'Compute row & col',
+    desc: 'Each thread computes its global position: row = blockIdx.y * blockDim.y + threadIdx.y, col = blockIdx.x * blockDim.x + threadIdx.x',
+    info: 'These map the 2D thread index to a unique element C[row][col] that this thread is responsible for computing.'
+  });
+  steps.push({
+    phase: 'init', sub: 'shmem', codeLines: [4,5],
+    title: 'Declare shared memory',
+    desc: 'Allocate s_a[] and s_b[] in shared memory (__shared__)',
+    info: `Shared memory is on-chip (~100x faster than global memory). All ${T*T} threads in this block share these ${T}x${T} arrays. This is where tile data will be cached.`
+  });
+  steps.push({
+    phase: 'init', sub: 'tmp', codeLines: [7],
+    title: 'Initialize tmp = 0',
+    desc: 'Each thread has its own accumulator in a register',
+    info: 'Registers are the fastest memory (zero latency). This variable accumulates the dot product across all tile phases.'
+  });
+
+  for (let tile = 0; tile < numTiles; tile++) {
+    const i = tile * T;
+    steps.push({
+      phase: 'tile', sub: 'loop', tile, i, codeLines: [9],
+      title: `Tile ${tile+1}/${numTiles}: i = ${i}`,
+      desc: `Outer loop: processing tile phase ${tile+1} (columns ${i}-${i+T-1} of A, rows ${i}-${i+T-1} of B)`,
+      info: `Instead of reading all N=${N} elements from global memory, we process ${T} elements at a time using shared memory. This is the key idea of tiling.`
+    });
+    steps.push({
+      phase: 'tile', sub: 'local_idx', tile, i, codeLines: [10],
+      title: 'Compute local_idx',
+      desc: 'local_idx = threadIdx.y * blockDim.x + threadIdx.x (flatten 2D thread coords to 1D shared mem index)',
+      info: 'Since shared memory is a 1D array, we flatten the 2D thread position. Each thread will load exactly one element using this index.'
+    });
+    steps.push({
+      phase: 'tile', sub: 'load_sa', tile, i, codeLines: [11],
+      title: 'Load tile into s_a',
+      desc: `All ${T*T} threads load one element each: s_a[local_idx] = a[row*N + ${i} + threadIdx.x]`,
+      info: `Collaborative loading: each thread loads 1 element. Threads in the same warp access consecutive addresses (row*${N}+${i}+0, row*${N}+${i}+1, ...) = COALESCED access pattern. This is efficient because GPU memory is fetched in 128-byte cache lines.`
+    });
+    steps.push({
+      phase: 'tile', sub: 'load_sb', tile, i, codeLines: [12],
+      title: 'Load tile into s_b',
+      desc: `All ${T*T} threads load one element each: s_b[local_idx] = b[(${i}+threadIdx.y)*N + col]`,
+      info: `For matrix B, threads in the same warp (same threadIdx.y, varying threadIdx.x=col) access consecutive column addresses. This is also coalesced.`
+    });
+    steps.push({
+      phase: 'tile', sub: 'sync1', tile, i, codeLines: [13],
+      title: '__syncthreads() #1',
+      desc: 'BARRIER: All threads must finish loading before any thread reads from shared memory',
+      info: 'Without this barrier, a thread might try to read s_a[k] or s_b[k] before the thread responsible for loading that element has finished. This would cause incorrect results (reading uninitialized/stale data).'
+    });
+    for (let j = 0; j < T; j++) {
+      steps.push({
+        phase: 'compute', sub: 'inner', tile, i, j, codeLines: [16],
+        title: `Multiply-accumulate j=${j}`,
+        desc: `tmp += s_a[threadIdx.y*${T}+${j}] * s_b[${j}*${T}+threadIdx.x]`,
+        info: `Reading from shared memory (fast!) instead of global memory. This element from s_a is reused by all ${T} threads in the same row, and the s_b element is reused by all ${T} threads in the same column. This is the data reuse that makes tiling worthwhile.`
+      });
+    }
+    steps.push({
+      phase: 'tile', sub: 'sync2', tile, i, codeLines: [18],
+      title: '__syncthreads() #2',
+      desc: 'BARRIER: All threads must finish computing before overwriting shared memory with next tile',
+      info: 'Without this barrier, a fast thread might start loading the next tile into s_a/s_b while a slow thread is still reading the current tile values. The slow thread would get corrupted data.'
+    });
+  }
+
+  steps.push({
+    phase: 'writeback', sub: 'store', codeLines: [21],
+    title: 'Write result to C',
+    desc: 'c[row * N + col] = tmp',
+    info: `The accumulated dot product (summed across all ${numTiles} tile phases) is the final result for C[row][col]. Each thread writes exactly one element.`
+  });
+
+  S.steps = steps;
+}
+
+// =====================================================================
+// SECTION 5: COMPUTE STATE FOR A GIVEN STEP
+// =====================================================================
+function computeState(stepIdx) {
+  const N = S.N, T = S.T;
+  const bx = S.blockX, by = S.blockY;
+  const tx = S.threadX, ty = S.threadY;
+
+  const row = by * T + ty;
+  const col = bx * T + tx;
+  const local_idx = ty * T + tx;
+
+  // Initialize shared memory and per-thread tmp for all threads in block
+  const shmemA = new Array(T*T).fill(null);
+  const shmemB = new Array(T*T).fill(null);
+  const allTmp = new Array(T*T).fill(0);
+
+  let vars = {
+    row, col,
+    'blockIdx.x': bx, 'blockIdx.y': by,
+    'threadIdx.x': tx, 'threadIdx.y': ty,
+    i: '-', j: '-',
+    local_idx: '-',
+    tmp: 0,
+  };
+
+  // Track what we highlight
+  let highlights = {
+    tileA: null, // {startRow, startCol, rows, cols}
+    tileB: null,
+    selA: null,  // {row, col} - the cell this thread loaded
+    selB: null,
+    saCells: [], // indices in shmemA that are loaded
+    sbCells: [],
+    saReadRow: -1, // row being read in inner loop
+    sbReadCol: -1,
+    cCell: null, // the output cell
+    cPartial: null, // partial value
+    syncActive: false,
+    innerJ: -1,
+    loadArrowA: null, // {fromRow, fromCol, toLocalIdx}
+    loadArrowB: null,
+  };
+
+  // Expression for the inner loop multiply
+  let expression = null;
+  // Completed C cells for this block
+  let completedC = {};
+  // Global read counter
+  let globalReads = 0;
+  let sharedReads = 0;
+
+  const step = S.steps[stepIdx];
+  if (!step) return { vars, shmemA, shmemB, highlights, expression, completedC, globalReads, sharedReads, allTmp };
+
+  // Simulate all steps up to stepIdx
+  for (let si = 0; si <= stepIdx; si++) {
+    const s = S.steps[si];
+
+    if (s.phase === 'init') {
+      if (s.sub === 'coords') {
+        vars.row = row;
+        vars.col = col;
+      } else if (s.sub === 'tmp') {
+        vars.tmp = 0;
+        for (let t = 0; t < T*T; t++) allTmp[t] = 0;
+      }
+    }
+
+    if (s.phase === 'tile' && s.sub === 'loop') {
+      vars.i = s.i;
+    }
+
+    if (s.phase === 'tile' && s.sub === 'local_idx') {
+      vars.local_idx = local_idx;
+    }
+
+    if (s.phase === 'tile' && s.sub === 'load_sa') {
+      // ALL threads load their element into s_a
+      for (let tty = 0; tty < T; tty++)
+        for (let ttx = 0; ttx < T; ttx++) {
+          const r = by * T + tty;
+          const lidx = tty * T + ttx;
+          shmemA[lidx] = S.matA[r * N + s.i + ttx];
+        }
+      globalReads += T * T;
+    }
+
+    if (s.phase === 'tile' && s.sub === 'load_sb') {
+      for (let tty = 0; tty < T; tty++)
+        for (let ttx = 0; ttx < T; ttx++) {
+          const c = bx * T + ttx;
+          const lidx = tty * T + ttx;
+          shmemB[lidx] = S.matB[(s.i + tty) * N + c];
+        }
+      globalReads += T * T;
+    }
+
+    if (s.phase === 'compute' && s.sub === 'inner') {
+      // All threads do multiply-accumulate for this j
+      for (let tty = 0; tty < T; tty++)
+        for (let ttx = 0; ttx < T; ttx++) {
+          const sa_val = shmemA[tty * T + s.j];
+          const sb_val = shmemB[s.j * T + ttx];
+          allTmp[tty * T + ttx] += sa_val * sb_val;
+        }
+      vars.tmp = allTmp[ty * T + tx];
+      sharedReads += T * T * 2; // each thread reads one from s_a and one from s_b
+    }
+
+    if (s.phase === 'writeback') {
+      // Write all threads' results
+      for (let tty = 0; tty < T; tty++)
+        for (let ttx = 0; ttx < T; ttx++) {
+          const gr = by * T + tty;
+          const gc = bx * T + ttx;
+          completedC[gr * N + gc] = allTmp[tty * T + ttx];
+        }
+    }
+  }
+
+  // Set highlights based on the CURRENT step only
+  if (step.phase === 'tile' && (step.sub === 'loop' || step.sub === 'local_idx' ||
+      step.sub === 'load_sa' || step.sub === 'load_sb' ||
+      step.sub === 'sync1' || step.sub === 'sync2')) {
+    // Highlight tile region on A
+    highlights.tileA = {
+      startRow: by * T, startCol: step.i,
+      rows: T, cols: T
+    };
+    // Highlight tile region on B
+    highlights.tileB = {
+      startRow: step.i, startCol: bx * T,
+      rows: T, cols: T
+    };
+  }
+
+  if (step.phase === 'tile' && step.sub === 'load_sa') {
+    highlights.selA = { row: row, col: step.i + tx };
+    highlights.saCells = Array.from({length: T*T}, (_,i) => i); // all cells loaded
+    highlights.loadArrowA = { fromRow: row, fromCol: step.i + tx, toLocalIdx: local_idx };
+  }
+
+  if (step.phase === 'tile' && step.sub === 'load_sb') {
+    highlights.selB = { row: step.i + ty, col: col };
+    highlights.sbCells = Array.from({length: T*T}, (_,i) => i);
+    highlights.loadArrowB = { fromRow: step.i + ty, fromCol: col, toLocalIdx: local_idx };
+  }
+
+  if (step.phase === 'tile' && (step.sub === 'sync1' || step.sub === 'sync2')) {
+    highlights.syncActive = true;
+  }
+
+  if (step.phase === 'compute' && step.sub === 'inner') {
+    highlights.tileA = { startRow: by * T, startCol: step.i, rows: T, cols: T };
+    highlights.tileB = { startRow: step.i, startCol: bx * T, rows: T, cols: T };
+    highlights.saReadRow = ty;
+    highlights.sbReadCol = tx;
+    highlights.innerJ = step.j;
+
+    const sa_idx = ty * T + step.j;
+    const sb_idx = step.j * T + tx;
+    const sa_val = shmemA[sa_idx];
+    const sb_val = shmemB[sb_idx];
+    const product = sa_val * sb_val;
+    const oldTmp = allTmp[ty * T + tx] - product;
+
+    expression = {
+      sa_idx, sb_idx, sa_val, sb_val, product, oldTmp,
+      newTmp: allTmp[ty * T + tx],
+      text: `tmp += s_a[${ty}*${T}+${step.j}] * s_b[${step.j}*${T}+${tx}]\n   = s_a[${sa_idx}] * s_b[${sb_idx}]\n   = ${sa_val} * ${sb_val} = ${product}\ntmp: ${oldTmp} + ${product} = ${allTmp[ty * T + tx]}`
+    };
+    vars.j = step.j;
+  }
+
+  if (step.phase === 'writeback') {
+    highlights.cCell = { row, col };
+  }
+
+  // Always show the output cell being computed
+  highlights.cPartial = { row, col, value: vars.tmp };
+
+  return { vars, shmemA, shmemB, highlights, expression, completedC, globalReads, sharedReads, allTmp };
+}
+
+// =====================================================================
+// SECTION 6: RENDERING - MATRICES
+// =====================================================================
+function renderMatrix(canvas, data, N, opts = {}) {
+  const parent = canvas.parentElement;
+  const maxW = parent.clientWidth - 8;
+  const maxH = parent.clientHeight - 8;
+  const cellSize = Math.min(Math.floor(maxW / N), Math.floor(maxH / N), 56);
+  const totalSize = cellSize * N;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = totalSize * dpr;
+  canvas.height = totalSize * dpr;
+  canvas.style.width = totalSize + 'px';
+  canvas.style.height = totalSize + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, totalSize, totalSize);
+
+  const fontSize = cellSize > 36 ? 12 : (cellSize > 24 ? 10 : 8);
+
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const x = c * cellSize;
+      const y = r * cellSize;
+      let bg = '#1e293b';
+      let border = '#334155';
+      let textColor = '#e2e8f0';
+      let val = data[r * N + c];
+      let bold = false;
+
+      // Tile highlight
+      if (opts.tile) {
+        const t = opts.tile;
+        if (r >= t.startRow && r < t.startRow + t.rows &&
+            c >= t.startCol && c < t.startCol + t.cols) {
+          bg = opts.tileColor || 'rgba(59,130,246,0.15)';
+        }
+      }
+
+      // Selected cell (the one this thread accesses)
+      if (opts.sel && opts.sel.row === r && opts.sel.col === c) {
+        bg = opts.selColor || 'rgba(59,130,246,0.5)';
+        border = opts.selBorder || '#3B82F6';
+        bold = true;
+      }
+
+      // Output cell highlight
+      if (opts.cCell && opts.cCell.row === r && opts.cCell.col === c) {
+        bg = 'rgba(245,158,11,0.5)';
+        border = '#F59E0B';
+        bold = true;
+      }
+
+      // Completed cells
+      if (opts.completed && (r * N + c) in opts.completed) {
+        bg = 'rgba(245,158,11,0.15)';
+        val = opts.completed[r * N + c];
+      }
+
+      // Partial value overlay for C
+      if (opts.partial && opts.partial.row === r && opts.partial.col === c) {
+        bg = 'rgba(245,158,11,0.35)';
+        border = '#F59E0B';
+        val = opts.partial.value;
+        bold = true;
+      }
+
+      // Draw cell
+      ctx.fillStyle = bg;
+      ctx.fillRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+      ctx.strokeStyle = border;
+      ctx.lineWidth = (bold ? 2 : 0.5);
+      ctx.strokeRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+
+      // Draw value
+      if (val !== null && val !== undefined && val !== '') {
+        ctx.fillStyle = textColor;
+        ctx.font = (bold ? 'bold ' : '') + fontSize + 'px Consolas, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(val), x + cellSize/2, y + cellSize/2);
+      }
+    }
+  }
+
+  return cellSize;
+}
+
+// =====================================================================
+// SECTION 7: RENDERING - SHARED MEMORY
+// =====================================================================
+function renderShmem(canvas, data, T, opts = {}) {
+  const parent = canvas.parentElement;
+  const maxW = parent.clientWidth - 8;
+  const maxH = parent.clientHeight - 8;
+  const cellSize = Math.min(Math.floor(maxW / T), Math.floor(maxH / T), 56);
+  const totalSize = cellSize * T;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = totalSize * dpr;
+  canvas.height = totalSize * dpr;
+  canvas.style.width = totalSize + 'px';
+  canvas.style.height = totalSize + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, totalSize, totalSize);
+
+  const fontSize = cellSize > 36 ? 12 : (cellSize > 24 ? 10 : 8);
+  const baseColor = opts.baseColor || '#3B82F6';
+
+  for (let r = 0; r < T; r++) {
+    for (let c = 0; c < T; c++) {
+      const x = c * cellSize;
+      const y = r * cellSize;
+      const idx = r * T + c;
+      let bg = '#0f172a';
+      let border = '#334155';
+      let textColor = '#e2e8f0';
+      let bold = false;
+      const val = data[idx];
+
+      if (val !== null) {
+        bg = '#1e293b';
+      }
+
+      // Loaded cells
+      if (opts.loaded && opts.loaded.includes(idx)) {
+        bg = baseColor + '33'; // 20% opacity
+        border = baseColor;
+      }
+
+      // Read row highlight (for s_a during inner loop)
+      if (opts.readRow >= 0 && r === opts.readRow) {
+        bg = baseColor + '22';
+        if (opts.innerJ >= 0 && c === opts.innerJ) {
+          bg = baseColor + '66';
+          border = baseColor;
+          bold = true;
+        }
+      }
+
+      // Read col highlight (for s_b during inner loop)
+      if (opts.readCol >= 0 && c === opts.readCol) {
+        bg = baseColor + '22';
+        if (opts.innerJ >= 0 && r === opts.innerJ) {
+          bg = baseColor + '66';
+          border = baseColor;
+          bold = true;
+        }
+      }
+
+      // This thread's cell
+      if (opts.myCell === idx) {
+        border = '#EF4444';
+        ctx.lineWidth = 2;
+        bold = true;
+      }
+
+      // Sync pulse
+      if (opts.syncActive) {
+        bg = 'rgba(252,211,77,0.2)';
+        border = '#FCD34D';
+      }
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+      ctx.strokeStyle = border;
+      ctx.lineWidth = bold ? 2 : 0.5;
+      ctx.strokeRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+
+      if (val !== null && val !== undefined) {
+        ctx.fillStyle = textColor;
+        ctx.font = (bold ? 'bold ' : '') + fontSize + 'px Consolas, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(val), x + cellSize/2, y + cellSize/2);
+      }
+    }
+  }
+}
+
+// =====================================================================
+// SECTION 8: RENDERING - THREAD GRID
+// =====================================================================
+const WARP_COLORS = ['#8B5CF6', '#14B8A6', '#F97316', '#EC4899', '#06B6D4', '#84CC16', '#F43F5E', '#A855F7'];
+
+function renderThreadGrid(canvas, T, selTx, selTy, syncActive) {
+  const parent = canvas.parentElement;
+  const maxW = parent.clientWidth - 8;
+  const maxH = parent.clientHeight - 50;
+  const cellSize = Math.min(Math.floor(maxW / T), Math.floor(maxH / T), 40);
+  const totalW = cellSize * T;
+  const totalH = cellSize * T;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = totalW * dpr;
+  canvas.height = totalH * dpr;
+  canvas.style.width = totalW + 'px';
+  canvas.style.height = totalH + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, totalW, totalH);
+
+  const fontSize = cellSize > 28 ? 9 : 7;
+
+  for (let r = 0; r < T; r++) {
+    for (let c = 0; c < T; c++) {
+      const x = c * cellSize;
+      const y = r * cellSize;
+      const linearIdx = r * T + c;
+      const warpId = Math.floor(linearIdx / 32);
+      const warpColor = WARP_COLORS[warpId % WARP_COLORS.length];
+      const isSelected = (r === selTy && c === selTx);
+
+      let bg = warpColor + '44';
+      let border = warpColor + '88';
+
+      if (syncActive) {
+        bg = 'rgba(252,211,77,0.4)';
+        border = '#FCD34D';
+      }
+
+      if (isSelected) {
+        bg = warpColor + 'AA';
+        border = '#EF4444';
+      }
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+      ctx.strokeStyle = border;
+      ctx.lineWidth = isSelected ? 2.5 : 1;
+      ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+
+      // Thread label
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = fontSize + 'px Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${c},${r}`, x + cellSize/2, y + cellSize/2);
+    }
+  }
+
+  // Store cellSize for click handling
+  canvas._cellSize = cellSize;
+}
+
+// =====================================================================
+// SECTION 9: RENDERING - CODE PANEL
+// =====================================================================
+function renderCodePanel(activeLines) {
+  const container = document.getElementById('code-container');
+  let html = '';
+  for (let i = 0; i < KERNEL_SOURCE.length; i++) {
+    const isActive = activeLines && activeLines.includes(i);
+    html += `<div class="code-line${isActive ? ' active' : ''}">`;
+    html += `<span class="code-line-num">${i + 1}</span>`;
+    html += `<span class="code-line-text">${KERNEL_SOURCE[i].code || '&nbsp;'}</span>`;
+    html += `</div>`;
+  }
+  container.innerHTML = html;
+
+  // Scroll active line into view
+  if (activeLines && activeLines.length > 0) {
+    const activeLine = container.querySelector('.code-line.active');
+    if (activeLine) {
+      activeLine.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
+}
+
+// =====================================================================
+// SECTION 10: RENDERING - VARIABLE WATCH
+// =====================================================================
+function renderVarWatch(vars, expression, highlights, state) {
+  const container = document.getElementById('vars-container');
+  const prev = S.prevVars;
+
+  function varRow(name, val) {
+    const changed = prev[name] !== undefined && prev[name] !== val && val !== '-';
+    return `<div class="var-row"><span class="var-name">${name}</span><span class="var-value${changed ? ' changed' : ''}">${val}</span></div>`;
+  }
+
+  let html = '';
+  html += '<div class="var-section-title">Thread Identity</div>';
+  html += varRow('blockIdx', `(${vars['blockIdx.x']}, ${vars['blockIdx.y']})`);
+  html += varRow('threadIdx', `(${vars['threadIdx.x']}, ${vars['threadIdx.y']})`);
+  html += varRow('row', vars.row);
+  html += varRow('col', vars.col);
+
+  html += '<div class="var-section-title">Loop Variables</div>';
+  html += varRow('i', vars.i);
+  html += varRow('local_idx', vars.local_idx);
+  html += varRow('j', vars.j);
+
+  html += '<div class="var-section-title">Accumulator</div>';
+  html += varRow('tmp', vars.tmp);
+
+  if (expression) {
+    html += '<div class="var-section-title">Current Expression</div>';
+    html += `<div class="expr-box">${escapeHtml(expression.text)}</div>`;
+  }
+
+  // Memory stats
+  html += '<div class="var-section-title">Memory Access Stats</div>';
+  const numTiles = S.N / S.T;
+  const naiveGlobal = 2 * S.N;
+  html += `<div class="expr-box" style="font-size:10.5px;line-height:1.5;">`;
+  html += `<span style="color:#67e8f9">Global reads:</span> ${state.globalReads} (all threads)\n`;
+  html += `<span style="color:#67e8f9">Shared reads:</span> ${state.sharedReads} (all threads)\n`;
+  html += `<span style="color:var(--color-text-dim)">---</span>\n`;
+  html += `<span style="color:#fbbf24">Naive kernel:</span> 2*${S.N} = ${naiveGlobal} global reads/thread\n`;
+  html += `<span style="color:#86efac">Tiled kernel:</span> 2*${numTiles} = ${2*numTiles} global reads/thread\n`;
+  html += `<span style="color:#f87171">Savings:</span> ${naiveGlobal - 2*numTiles} fewer global reads/thread`;
+  html += `</div>`;
+
+  container.innerHTML = html;
+
+  // Save for change detection
+  S.prevVars = { ...vars };
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// =====================================================================
+// SECTION 11: RENDERING - INFO BAR
+// =====================================================================
+function renderInfoBar(step) {
+  const bar = document.getElementById('info-bar');
+  if (!step) {
+    bar.innerHTML = '<span class="info-title">Ready</span><span class="info-text">Press &rarr; or click Next to begin.</span>';
+    return;
+  }
+  bar.innerHTML = `<span class="info-title">${escapeHtml(step.title)}</span><span class="info-text">${escapeHtml(step.info || step.desc)}</span>`;
+}
+
+// =====================================================================
+// SECTION 12: MAIN RENDER FUNCTION
+// =====================================================================
+function render() {
+  const stepIdx = S.currentStep;
+  const step = S.steps[stepIdx];
+  const state = computeState(stepIdx);
+  const h = state.highlights;
+  const N = S.N, T = S.T;
+
+  // Step counter
+  document.getElementById('step-counter').textContent = `Step ${stepIdx + 1} / ${S.steps.length}`;
+  document.getElementById('step-desc').textContent = step ? step.desc : '';
+
+  // Thread label
+  document.getElementById('thread-label').textContent = `(${S.threadX}, ${S.threadY})`;
+
+  // Matrices
+  renderMatrix(document.getElementById('canvas-a'), S.matA, N, {
+    tile: h.tileA, tileColor: 'rgba(59,130,246,0.15)',
+    sel: h.selA, selColor: 'rgba(59,130,246,0.5)', selBorder: '#3B82F6',
+  });
+
+  renderMatrix(document.getElementById('canvas-b'), S.matB, N, {
+    tile: h.tileB, tileColor: 'rgba(16,185,129,0.15)',
+    sel: h.selB, selColor: 'rgba(16,185,129,0.5)', selBorder: '#10B981',
+  });
+
+  // Matrix C - show completed cells + partial
+  const cData = new Array(N*N).fill('');
+  renderMatrix(document.getElementById('canvas-c'), cData, N, {
+    completed: state.completedC,
+    partial: step && step.phase !== 'writeback' ? h.cPartial : null,
+    cCell: step && step.phase === 'writeback' ? h.cCell : null,
+  });
+
+  // Shared memory
+  const myLocalIdx = S.threadY * T + S.threadX;
+  const saOpts = {
+    baseColor: '#3B82F6',
+    loaded: step && (step.sub === 'load_sa') ? h.saCells : [],
+    readRow: h.saReadRow,
+    innerJ: h.innerJ,
+    myCell: (step && step.sub === 'load_sa') ? myLocalIdx : -1,
+    syncActive: h.syncActive,
+  };
+  renderShmem(document.getElementById('canvas-sa'), state.shmemA, T, saOpts);
+
+  const sbOpts = {
+    baseColor: '#10B981',
+    loaded: step && (step.sub === 'load_sb') ? h.sbCells : [],
+    readCol: h.sbReadCol,
+    innerJ: h.innerJ,
+    myCell: (step && step.sub === 'load_sb') ? myLocalIdx : -1,
+    syncActive: h.syncActive,
+  };
+  renderShmem(document.getElementById('canvas-sb'), state.shmemB, T, sbOpts);
+
+  // Thread grid
+  renderThreadGrid(document.getElementById('canvas-threads'), T, S.threadX, S.threadY, h.syncActive);
+
+  // Code panel
+  renderCodePanel(step ? step.codeLines : []);
+
+  // Variable watch
+  renderVarWatch(state.vars, state.expression, h, state);
+
+  // Info bar
+  renderInfoBar(step);
+
+  // Update button states
+  document.getElementById('btn-prev').disabled = stepIdx <= 0;
+  document.getElementById('btn-first').disabled = stepIdx <= 0;
+  document.getElementById('btn-next').disabled = stepIdx >= S.steps.length - 1;
+  document.getElementById('btn-last').disabled = stepIdx >= S.steps.length - 1;
+
+  // Sync animation on panels
+  const saPanel = document.getElementById('panel-sa');
+  const sbPanel = document.getElementById('panel-sb');
+  if (h.syncActive) {
+    saPanel.classList.add('sync-active');
+    sbPanel.classList.add('sync-active');
+  } else {
+    saPanel.classList.remove('sync-active');
+    sbPanel.classList.remove('sync-active');
+  }
+}
+
+// =====================================================================
+// SECTION 13: CONTROLS
+// =====================================================================
+function stepNext() {
+  if (S.currentStep < S.steps.length - 1) {
+    S.currentStep++;
+    render();
+  } else {
+    stopPlay();
+  }
+}
+
+function stepPrev() {
+  if (S.currentStep > 0) {
+    S.currentStep--;
+    render();
+  }
+}
+
+function stepFirst() {
+  S.currentStep = 0;
+  render();
+}
+
+function stepLast() {
+  S.currentStep = S.steps.length - 1;
+  render();
+}
+
+function togglePlay() {
+  if (S.playing) {
+    stopPlay();
+  } else {
+    startPlay();
+  }
+}
+
+function startPlay() {
+  S.playing = true;
+  document.getElementById('play-btn').innerHTML = '&#x23F8;';
+  S.playTimer = setInterval(() => {
+    if (S.currentStep < S.steps.length - 1) {
+      S.currentStep++;
+      render();
+    } else {
+      stopPlay();
+    }
+  }, S.playSpeed);
+}
+
+function stopPlay() {
+  S.playing = false;
+  document.getElementById('play-btn').innerHTML = '&#x25B6;';
+  if (S.playTimer) {
+    clearInterval(S.playTimer);
+    S.playTimer = null;
+  }
+}
+
+// =====================================================================
+// SECTION 14: PARAMETER CONTROLS
+// =====================================================================
+function updateTileButtons() {
+  const N = S.N;
+  const validTiles = [2, 4];
+  if (N >= 16) validTiles.push(8);
+  const container = document.getElementById('tile-btns');
+  container.innerHTML = '';
+  validTiles.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'param-btn' + (t === S.T ? ' active' : '');
+    btn.textContent = t;
+    btn.dataset.param = 'T';
+    btn.dataset.val = t;
+    btn.addEventListener('click', () => {
+      S.T = t;
+      resetSimulation();
+    });
+    container.appendChild(btn);
+  });
+  // If current T is not valid, reset to first valid
+  if (!validTiles.includes(S.T)) {
+    S.T = validTiles[0];
+  }
+}
+
+function updateBlockSelect() {
+  const numBlocks = S.N / S.T;
+  const sel = document.getElementById('block-select');
+  sel.innerHTML = '';
+  for (let by = 0; by < numBlocks; by++) {
+    for (let bx = 0; bx < numBlocks; bx++) {
+      const opt = document.createElement('option');
+      opt.value = `${bx},${by}`;
+      opt.textContent = `(${bx}, ${by})`;
+      if (bx === S.blockX && by === S.blockY) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+}
+
+function resetSimulation() {
+  stopPlay();
+  S.currentStep = 0;
+  S.prevVars = {};
+
+  // Clamp block selection
+  const numBlocks = S.N / S.T;
+  if (S.blockX >= numBlocks) S.blockX = 0;
+  if (S.blockY >= numBlocks) S.blockY = 0;
+  if (S.threadX >= S.T) S.threadX = 0;
+  if (S.threadY >= S.T) S.threadY = 0;
+
+  initMatrices();
+  generateSteps();
+  updateTileButtons();
+  updateBlockSelect();
+  updateThreadInfo();
+  render();
+}
+
+function updateThreadInfo() {
+  const T = S.T;
+  const linearIdx = S.threadY * T + S.threadX;
+  const warpId = Math.floor(linearIdx / 32);
+  const laneId = linearIdx % 32;
+  document.getElementById('thread-info').innerHTML =
+    `<span style="color:var(--color-text-dim);font-size:10px;">` +
+    `Linear: ${linearIdx} | Warp ${warpId}, Lane ${laneId} | ` +
+    `<span style="color:${WARP_COLORS[warpId % WARP_COLORS.length]}">&#9632;</span> Warp ${warpId}</span>`;
+}
+
+// =====================================================================
+// SECTION 15: EVENT LISTENERS
+// =====================================================================
+function initEvents() {
+  // Step buttons
+  document.getElementById('btn-next').addEventListener('click', stepNext);
+  document.getElementById('btn-prev').addEventListener('click', stepPrev);
+  document.getElementById('btn-first').addEventListener('click', stepFirst);
+  document.getElementById('btn-last').addEventListener('click', stepLast);
+  document.getElementById('play-btn').addEventListener('click', togglePlay);
+
+  // Speed slider
+  document.getElementById('speed-slider').addEventListener('input', e => {
+    S.playSpeed = parseInt(e.target.value);
+    if (S.playing) {
+      stopPlay();
+      startPlay();
+    }
+  });
+
+  // N parameter buttons
+  document.querySelectorAll('.param-btn[data-param="N"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.param-btn[data-param="N"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      S.N = parseInt(btn.dataset.val);
+      resetSimulation();
+    });
+  });
+
+  // Block selector
+  document.getElementById('block-select').addEventListener('change', e => {
+    const [bx, by] = e.target.value.split(',').map(Number);
+    S.blockX = bx;
+    S.blockY = by;
+    S.currentStep = 0;
+    S.prevVars = {};
+    render();
+  });
+
+  // Thread grid click
+  document.getElementById('canvas-threads').addEventListener('click', e => {
+    const canvas = e.target;
+    const cellSize = canvas._cellSize;
+    if (!cellSize) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const tx = Math.floor(mx / cellSize);
+    const ty = Math.floor(my / cellSize);
+    if (tx >= 0 && tx < S.T && ty >= 0 && ty < S.T) {
+      S.threadX = tx;
+      S.threadY = ty;
+      S.prevVars = {};
+      updateThreadInfo();
+      render();
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'Right') {
+      e.preventDefault();
+      stepNext();
+    } else if (e.key === 'ArrowLeft' || e.key === 'Left') {
+      e.preventDefault();
+      stepPrev();
+    } else if (e.key === ' ') {
+      e.preventDefault();
+      togglePlay();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      stepFirst();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      stepLast();
+    }
+  });
+
+  // Window resize
+  window.addEventListener('resize', () => render());
+}
+
+// =====================================================================
+// SECTION 16: INITIALIZATION
+// =====================================================================
+function init() {
+  initEvents();
+  resetSimulation();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
