@@ -49,6 +49,49 @@ cuda_gpu_for_beginner/
 └── learning_notes           # nsys 分析笔记
 ```
 
+## 视频教程
+
+本仓库的每个主题都配有**视频讲解**，逐步解析代码、CUDA 概念和优化技巧。在 YouTube 上观看完整播放列表：[**CUDA GPU for Beginners**](https://www.youtube.com/playlist?list=PLxcVy4Q7Iwv3S1cfFRIhRDFGtbkxJfBCm)
+
+| # | 视频 | 链接 |
+|---|------|------|
+| 1 | vector add | [观看](https://www.youtube.com/watch?v=Z3kQM9FDnS8) |
+| 2 | vectorAdd um baseline | [观看](https://www.youtube.com/watch?v=m8aVbFzY6O4) |
+| 2.5 | vectorAdd grid stride and vectorized memory access | [观看](https://www.youtube.com/watch?v=Fxby17eycuU) |
+| 3 | vectorAdd um prefetch | [观看](https://www.youtube.com/watch?v=zEVu3Ut9OUg) |
+| 4 | vectorAdd pinned | [观看](https://www.youtube.com/watch?v=IJVyGTvR-K0) |
+| 5 | mmul baseline | [观看](https://www.youtube.com/watch?v=7pgxPTsqX4M) |
+| 6 | mmul tile | [观看](https://www.youtube.com/watch?v=Vdm5gYq_ne4) |
+| 7 | gpu architecture | [观看](https://www.youtube.com/watch?v=Jq-9ek3buyc) |
+| 8 | mmul alignment | [观看](https://www.youtube.com/watch?v=LsaO7Q_Vx4Y) |
+| 9 | cublas vectorAdd | [观看](https://www.youtube.com/watch?v=E34QkpOQUJI) |
+| 10 | cublas matrix mul | [观看](https://www.youtube.com/watch?v=FQ-Cg_YvqPA) |
+| 11 | sum reduction diverged | [观看](https://www.youtube.com/watch?v=VgSSfQchzHo) |
+| 12 | sum reduction bank conflicts | [观看](https://www.youtube.com/watch?v=P4ryYKREKmw) |
+| 13 | some questions about bank conflicts | [观看](https://www.youtube.com/watch?v=xtjdzWk2yz0) |
+| 14 | sum reduction no conflicts | [观看](https://www.youtube.com/watch?v=n4ahYs70UwM) |
+| 15 | sum reduction reduce idle | [观看](https://www.youtube.com/watch?v=nanG70BemNE) |
+| 16 | sum reduction device function | [观看](https://www.youtube.com/watch?v=gJIBeWouLak) |
+| 17 | sum reduction cooperative groups | [观看](https://www.youtube.com/watch?v=XGt-2oWTe9k) |
+| 18 | visual studio build cuda project | [观看](https://www.youtube.com/watch?v=7a7qfDYlGU8) |
+| 19 | vectorAdd baseline profiling | [观看](https://www.youtube.com/watch?v=1LnZ6J0zw2Q) |
+| 20 | Nsight Systems vs Nsight Compute | [观看](https://www.youtube.com/watch?v=ynDAEmC5CJ8) |
+| 21 | gpu profiling scripts for mmul and sumReduction | [观看](https://www.youtube.com/watch?v=hLOyh12YmsM) |
+| 21.5 | gpu profiling results for mmul and sumReduction | [观看](https://www.youtube.com/watch?v=NaoyP2egoSw) |
+| 22 | 1d convolution naive | [观看](https://www.youtube.com/watch?v=RQpw8L7jYfY) |
+| 23 | GPU concepts recap | [观看](https://www.youtube.com/watch?v=Bmti4lUJhB0) |
+| 24 | 1d convolution constant memory | [观看](https://www.youtube.com/watch?v=9f5oMRZ8hXg) |
+| 25 | 1d convolution shared memory | [观看](https://www.youtube.com/watch?v=cqE-FzfNHU4) |
+| 26 | 1d convolution cache simplification | [观看](https://www.youtube.com/watch?v=SXh_hmMzsto) |
+| 27 | 2d convolution | [观看](https://www.youtube.com/watch?v=xfVvLvz_kA0) |
+| 28 | short summary thinking spatially | [观看](https://www.youtube.com/watch?v=X9I9EQorroo) |
+| 29 | histogram global atomic | [观看](https://www.youtube.com/watch?v=qVz8x-8Y14s) |
+| 30 | histogram shmem atomic | [观看](https://www.youtube.com/watch?v=6VoHjZAweCw) |
+| 31 | matrix multiplication demo | [观看](https://www.youtube.com/watch?v=HvIgHc-0_Kw) |
+| 32 | OpenACC | [观看](https://www.youtube.com/watch?v=w5Yrz15oE3Q) |
+| 33 | gpu device properties | [观看](https://www.youtube.com/watch?v=wPNZW_GIlc0) |
+| 34 | clock function | [观看](https://www.youtube.com/watch?v=S0et57vOJt0) |
+
 ## 涵盖的关键概念
 
 - **网格步进循环与向量化内存访问**（`int4` 实现 128 位加载）

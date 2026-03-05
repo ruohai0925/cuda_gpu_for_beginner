@@ -49,6 +49,49 @@ cuda_gpu_for_beginner/
 └── learning_notes           # nsys profiling notes
 ```
 
+## Video Tutorials
+
+Every topic in this repository comes with a **video walkthrough** explaining the code, CUDA concepts, and optimization techniques step by step. Watch the full playlist on YouTube: [**CUDA GPU for Beginners**](https://www.youtube.com/playlist?list=PLxcVy4Q7Iwv3S1cfFRIhRDFGtbkxJfBCm)
+
+| # | Video | Link |
+|---|-------|------|
+| 1 | vector add | [Watch](https://www.youtube.com/watch?v=Z3kQM9FDnS8) |
+| 2 | vectorAdd um baseline | [Watch](https://www.youtube.com/watch?v=m8aVbFzY6O4) |
+| 2.5 | vectorAdd grid stride and vectorized memory access | [Watch](https://www.youtube.com/watch?v=Fxby17eycuU) |
+| 3 | vectorAdd um prefetch | [Watch](https://www.youtube.com/watch?v=zEVu3Ut9OUg) |
+| 4 | vectorAdd pinned | [Watch](https://www.youtube.com/watch?v=IJVyGTvR-K0) |
+| 5 | mmul baseline | [Watch](https://www.youtube.com/watch?v=7pgxPTsqX4M) |
+| 6 | mmul tile | [Watch](https://www.youtube.com/watch?v=Vdm5gYq_ne4) |
+| 7 | gpu architecture | [Watch](https://www.youtube.com/watch?v=Jq-9ek3buyc) |
+| 8 | mmul alignment | [Watch](https://www.youtube.com/watch?v=LsaO7Q_Vx4Y) |
+| 9 | cublas vectorAdd | [Watch](https://www.youtube.com/watch?v=E34QkpOQUJI) |
+| 10 | cublas matrix mul | [Watch](https://www.youtube.com/watch?v=FQ-Cg_YvqPA) |
+| 11 | sum reduction diverged | [Watch](https://www.youtube.com/watch?v=VgSSfQchzHo) |
+| 12 | sum reduction bank conflicts | [Watch](https://www.youtube.com/watch?v=P4ryYKREKmw) |
+| 13 | some questions about bank conflicts | [Watch](https://www.youtube.com/watch?v=xtjdzWk2yz0) |
+| 14 | sum reduction no conflicts | [Watch](https://www.youtube.com/watch?v=n4ahYs70UwM) |
+| 15 | sum reduction reduce idle | [Watch](https://www.youtube.com/watch?v=nanG70BemNE) |
+| 16 | sum reduction device function | [Watch](https://www.youtube.com/watch?v=gJIBeWouLak) |
+| 17 | sum reduction cooperative groups | [Watch](https://www.youtube.com/watch?v=XGt-2oWTe9k) |
+| 18 | visual studio build cuda project | [Watch](https://www.youtube.com/watch?v=7a7qfDYlGU8) |
+| 19 | vectorAdd baseline profiling | [Watch](https://www.youtube.com/watch?v=1LnZ6J0zw2Q) |
+| 20 | Nsight Systems vs Nsight Compute | [Watch](https://www.youtube.com/watch?v=ynDAEmC5CJ8) |
+| 21 | gpu profiling scripts for mmul and sumReduction | [Watch](https://www.youtube.com/watch?v=hLOyh12YmsM) |
+| 21.5 | gpu profiling results for mmul and sumReduction | [Watch](https://www.youtube.com/watch?v=NaoyP2egoSw) |
+| 22 | 1d convolution naive | [Watch](https://www.youtube.com/watch?v=RQpw8L7jYfY) |
+| 23 | GPU concepts recap | [Watch](https://www.youtube.com/watch?v=Bmti4lUJhB0) |
+| 24 | 1d convolution constant memory | [Watch](https://www.youtube.com/watch?v=9f5oMRZ8hXg) |
+| 25 | 1d convolution shared memory | [Watch](https://www.youtube.com/watch?v=cqE-FzfNHU4) |
+| 26 | 1d convolution cache simplification | [Watch](https://www.youtube.com/watch?v=SXh_hmMzsto) |
+| 27 | 2d convolution | [Watch](https://www.youtube.com/watch?v=xfVvLvz_kA0) |
+| 28 | short summary thinking spatially | [Watch](https://www.youtube.com/watch?v=X9I9EQorroo) |
+| 29 | histogram global atomic | [Watch](https://www.youtube.com/watch?v=qVz8x-8Y14s) |
+| 30 | histogram shmem atomic | [Watch](https://www.youtube.com/watch?v=6VoHjZAweCw) |
+| 31 | matrix multiplication demo | [Watch](https://www.youtube.com/watch?v=HvIgHc-0_Kw) |
+| 32 | OpenACC | [Watch](https://www.youtube.com/watch?v=w5Yrz15oE3Q) |
+| 33 | gpu device properties | [Watch](https://www.youtube.com/watch?v=wPNZW_GIlc0) |
+| 34 | clock function | [Watch](https://www.youtube.com/watch?v=S0et57vOJt0) |
+
 ## Key Concepts Covered
 
 - **Grid-stride loops & vectorized memory access** (`int4` for 128-bit loads)
