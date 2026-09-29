@@ -121,13 +121,12 @@ nvcc matrix_mul_cublas.cu -o matrix_mul -lcublas -lcurand
 
 ## 许可证
 
-本仓库同时遵循以下**两个**许可证。仓库中的所有代码（包括对原始示例的修改）必须同时满足这两个许可证的要求：
+本仓库按文件来源使用两种许可证：
 
-1. **GPL-3.0** — 继承自上游 [CoffeeBeforeArch/cuda_programming](https://github.com/CoffeeBeforeArch/cuda_programming) 仓库。见 [LICENSE](LICENSE)。
+1. **GPL-3.0**（[LICENSE](LICENSE)）—— 所有 CUDA/C/C++ 源文件（`*.cu`、`*.h`、`*.cpp`）以及 `cuda_timing_Nick/` 下的全部文件。它们是上游 [CoffeeBeforeArch/cuda_programming](https://github.com/CoffeeBeforeArch/cuda_programming) 仓库代码的修改版，因此继续遵循 GPL-3.0。
+2. **MIT**（[LICENSE-MIT](LICENSE-MIT)）—— 维护者从零写的内容：文档与笔记（`README.md`、`README_CN.md`、`learning_notes`、各示例目录和 `cuda_timing_ZDSJTU/` 里的 `*.md` 说明）、交互页面 `02_matrix_mul/tiled/interactive_tiled_matmul.html`，以及辅助脚本 `cuda_timing_ZDSJTU/*/profile_*.py`。
 
-2. **PolyForm Strict 1.0.0** — 由本仓库维护者对整个仓库施加的附加限制。见 [LICENSE-POLYFORM](LICENSE-POLYFORM)。
-
-**简而言之**：本仓库所有代码为源码可见，仅限**个人和非商业用途**。你可以学习、实验和研究这些代码，但未经维护者明确书面许可，**不允许商业使用**。使用本仓库的任何部分时，必须同时遵守两个许可证。
+未列入 MIT 的文件一律按 GPL-3.0。两种许可证都允许学习、修改和商业使用；分发 GPL-3.0 文件（或由它们编译的程序）时，须按 GPL-3.0 一并提供源代码。
 
 ## 致谢
 

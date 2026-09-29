@@ -121,13 +121,12 @@ nvcc matrix_mul_cublas.cu -o matrix_mul -lcublas -lcurand
 
 ## License
 
-This repository is released under **both** of the following licenses. All code in this repository (including modifications to the original examples) must comply with **both** licenses simultaneously:
+This repository uses two licenses, depending on where a file came from:
 
-1. **GPL-3.0** — inherited from the upstream [CoffeeBeforeArch/cuda_programming](https://github.com/CoffeeBeforeArch/cuda_programming) repository. See [LICENSE](LICENSE).
+1. **GPL-3.0** ([LICENSE](LICENSE)) — all CUDA/C/C++ source files (`*.cu`, `*.h`, `*.cpp`) and everything under `cuda_timing_Nick/`. These are modified versions of code from the upstream [CoffeeBeforeArch/cuda_programming](https://github.com/CoffeeBeforeArch/cuda_programming) repository, so they stay under GPL-3.0.
+2. **MIT** ([LICENSE-MIT](LICENSE-MIT)) — material written from scratch by the maintainer: the documentation and notes (`README.md`, `README_CN.md`, `learning_notes`, the `*.md` guides in the example folders and in `cuda_timing_ZDSJTU/`), the interactive page `02_matrix_mul/tiled/interactive_tiled_matmul.html`, and the helper scripts `cuda_timing_ZDSJTU/*/profile_*.py`.
 
-2. **PolyForm Strict 1.0.0** — additional restriction applied to the entire repository by the maintainer. See [LICENSE-POLYFORM](LICENSE-POLYFORM).
-
-**In summary**: All code in this repository is source-available for **personal and non-commercial use only**. You may study, experiment, and learn from this code, but **commercial use is not permitted** without explicit written permission from the maintainer. Both licenses must be respected when using any part of this repository.
+A file not listed under MIT is GPL-3.0. Both licenses allow study, modification and commercial use; if you distribute GPL-3.0 files (or programs built from them), you must do so under GPL-3.0 with their source.
 
 ## Acknowledgments
 
